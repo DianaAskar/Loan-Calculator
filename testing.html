@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auto Refinance Calculator</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root {
+  --red-start: #ff4d4d;
+  --red-end: #b30000;
+  --green-start: #00cc44;
+  --green-end: #008000;
+  --blue-start: #4d79ff;
+  --blue-end: #0040ff;
+  --bg: #f7f9fb;
+  --text-dark: #000;
+  --card-bg: #ffffff;
+  --shadow: 0 4px 12px rgba(0,0,0,0.1);
+  --radius: 14px;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text-dark);
+  margin:0;
+  padding:20px;
+}
+
+h1 {
+  text-align:center;
+  margin-bottom:30px;
+  font-size:2em;
+}
+
+.container {
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:20px;
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding:20px;
+  width:320px;
+  box-shadow: var(--shadow);
+}
+
+.card h2 {
+  padding: 10px 16px;
+  border-radius: 10px 10px 0 0;
+  color: #fff;
+  margin: -20px -20px 20px -20px;
+  font-weight:bold;
+}
+
+.loan-current h2 { background: linear-gradient(90deg, var(--red-start), var(--red-end)); }
+.loan-new h2 { background: linear-gradient(90deg, var(--green-start), var(--green-end)); }
+.scenario h2 { background: linear-gradient(90deg, var(--blue-start), var(--blue-end)); }
+
+label {
+  display:block;
+  margin:8px 0 4px;
+  font-weight:bold;
+}
+
+input[type="number"] {
+  width:100%;
+  padding:6px 10px;
+  border-radius:6px;
+  border:1px solid #ddd;
+  font-size:1em;
+  background:#fafafa;
+  box-sizing: border-box;
+}
+
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.percent-wrapper {
+  display:flex;
+  align-items:center;
+}
+.percent-wrapper input { flex:1; }
+.percent-wrapper span {
+  margin-left:6px;
+  font-weight:bold;
+}
+
+.metric {
+  margin:6px 0;
+  font-size:1em;
+}
+
+.metric span.label {
+  display:inline-block;
+  width:130px;
+}
+
+.metric span.value {
+  font-weight:bold;
+  display:inline-block;
+  min-width:80px;
+}
+
+.metric span.highlight {
+  background: #ffe066;
+  padding:4px 8px;
+  border-radius:6px;
+  font-weight:bold;
+  font-size:1.1em;
+}
+
+#chartContainer {
+  max-width:600px;
+  margin:40px auto;
+  background:#fff;
+  padding:20px;
+  border-radius:14px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.1);
+}
+</style>
+</head>
+<body>
+
+<h1>Auto Refinance Calculator</h1>
+
+<div class="container">
+
+  <div class="card loan-current">
+    <h2>Current Loan</h2>
+    <label>Balance</label>
+    <input type="number" id="currentBalance" value="20000">
+    <label>Interest Rate</label>
+    <div class="percent-wrapper">
+      <input type="number" id="currentRate" value="5">
+      <span>%</span>
+    </div>
+    <label>Months Remaining</label>
+    <input type="number" id="currentTerm" value="36">
+    <label>Current Monthly Payment</label>
+    <input type="number" id="currentMonthlyPayment" value="400">
+
+    <div id="currentMetrics" style="margin-top:15px;">
+      <div class="metric"><span class="label">Monthly Payment:</span> <span class="value" id="cMonthly"></span></div>
+      <div class="metric"><span class="label">Interest Charge:</span> <span class="value" id="cInterest"></span></div>
+      <div class="metric"><span class="label">Future Cost:</span> <span class="value" id="cTotal"></span></div>
+    </div>
+  </div>
+
+  <div class="card loan-new">
+    <h2>New Loan</h2>
+    <label>Balance</label>
+    <input type="number" id="newBalance" value="20000">
+    <label>Interest Rate</label>
+    <div class="percent-wrapper">
+      <input type="number" id="newRate" value="3.5">
+      <span>%</span>
+    </div>
+    <label>Term</label>
+    <input type="number" id="newTerm" value="60">
+    <label>Down Payment</label>
+    <input type="number" id="downPayment" value="0">
+
+    <div id="newMetrics" style="margin-top:15px;">
+      <div class="metric"><span class="label">Monthly Payment:</span> <span class="value" id="nMonthly"></span></div>
+      <div class="metric"><span class="label">Interest Charge:</span> <span class="value" id="nInterest"></span></div>
+      <div class="metric"><span class="label">Monthly Savings:</span> <span class="value highlight" id="nMonthlySavings"></span></div>
+      <div class="metric"><span class="label">Interest Savings:</span> <span class="value highlight" id="nInterestSavings"></span></div>
+      <div class="metric"><span class="label">Net Savings:</span> <span class="value highlight" id="nNetSavings"></span></div>
+    </div>
+  </div>
+
+  <div class="card scenario">
+    <h2>Extra Payment</h2>
+    <label>Additional Monthly Payment</label>
+    <input type="number" id="extraPayment" value="0">
+
+    <div id="extraMetrics" style="margin-top:15px;">
+      <h3>Total Savings</h3>
+      <div class="metric"><span class="label">Payoff:</span> <span class="value" id="ePayoff"></span></div>
+      <div class="metric"><span class="label">Total Savings:</span> <span class="value" id="eSavings"></span></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="chartContainer">
+  <canvas id="costChart"></canvas>
+</div>
+
+<script>
+function formatCurrency(num){
+  return num.toLocaleString('en-US', {style:'currency', currency:'USD'});
+}
+
+function monthlyPayment(principal, rate, months) {
+  const r = rate / 100 / 12;
+  return r===0 ? principal/months : (r * principal)/(1 - Math.pow(1+r, -months));
+}
+
+function extraScenarioCalc(principal, rate, months, extra) {
+  let balance = principal, month = 0, totalInterest = 0;
+  const r = rate/100/12;
+  const basePayment = monthlyPayment(principal, rate, months);
+  while(balance>0){
+    let interest = balance*r;
+    let payment = basePayment + extra;
+    if(payment>balance+interest) payment=balance+interest;
+    let principalPaid = payment-interest;
+    balance -= principalPaid;
+    totalInterest += interest;
+    month++;
+    if(month>1000) break;
+  }
+  return {months:month,totalInterest};
+}
+
+let costChart;
+
+function calculate() {
+  const currentBalance = Number(document.getElementById('currentBalance').value);
+  const currentRate = Number(document.getElementById('currentRate').value);
+  const currentTerm = Number(document.getElementById('currentTerm').value);
+  const currentMonthly = Math.round(Number(document.getElementById('currentMonthlyPayment').value));
+
+  let newBalance = Number(document.getElementById('newBalance').value) - Number(document.getElementById('downPayment').value);
+  const newRate = Number(document.getElementById('newRate').value);
+  const newTerm = Number(document.getElementById('newTerm').value);
+  const extra = Number(document.getElementById('extraPayment').value);
+
+  const currentTotal = Math.round(currentMonthly*currentTerm);
+  const currentInterest = Math.round(currentTotal-currentBalance);
+
+  const newMonthly = Math.round(monthlyPayment(newBalance,newRate,newTerm));
+  const newTotal = Math.round(newMonthly*newTerm);
+  const newInterest = Math.round(newTotal-newBalance);
+
+  const extraSc = extraScenarioCalc(newBalance,newRate,newTerm,extra);
+  const extraTotal = Math.round(extraSc.totalInterest + newBalance);
+
+  // Update Current Loan metrics
+  document.getElementById('cMonthly').textContent = formatCurrency(currentMonthly);
+  document.getElementById('cInterest').textContent = formatCurrency(currentInterest);
+  document.getElementById('cTotal').textContent = formatCurrency(currentTotal);
+
+  // Update New Loan metrics
+  document.getElementById('nMonthly').textContent = formatCurrency(newMonthly);
+  document.getElementById('nInterest').textContent = formatCurrency(newInterest);
+  document.getElementById('nMonthlySavings').textContent = formatCurrency(currentMonthly - newMonthly);
+  document.getElementById('nInterestSavings').textContent = formatCurrency(currentInterest - newInterest);
+  document.getElementById('nNetSavings').textContent = formatCurrency(currentTotal - newTotal);
+
+  // Update Extra Payment metrics
+  document.getElementById('ePayoff').textContent = `${Math.floor(extraSc.months/12)} yrs ${extraSc.months%12} mos`;
+  document.getElementById('eSavings').textContent = formatCurrency(currentTotal - extraTotal);
+
+  // Update Chart
+  if(costChart) costChart.destroy();
+
+  costChart = new Chart(document.getElementById('costChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Current Loan', 'New Loan', 'New + Extra Payment'],
+      datasets: [{
+        label: 'Total Cost',
+        data: [currentTotal, newTotal, extraTotal],
+        backgroundColor: ['#ff4d4d','#00cc44','#4d79ff'],
+        borderRadius: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return formatCurrency(context.raw);
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: 'Total Cost ($)' }
+        }
+      }
+    }
+  });
+}
+
+document.querySelectorAll('input').forEach(i=>i.addEventListener('input',calculate));
+calculate();
+</script>
+
+</body>
+</html>
